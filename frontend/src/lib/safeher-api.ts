@@ -45,12 +45,49 @@ async function apiFetch(path: string, options: RequestInit = {}): Promise<Respon
   });
 }
 
+async function handleApiError(res: Response, defaultMsg: string): Promise<never> {
+  try {
+    const contentType = res.headers.get("content-type");
+    if (contentType && contentType.includes("application/json")) {
+      const data = await res.json();
+      if (data && typeof data === "object") {
+        if (data.detail) {
+          throw new Error(data.detail);
+        }
+        // Extract the first validation error if present
+        const firstKey = Object.keys(data)[0];
+        if (firstKey) {
+          const errorVal = data[firstKey];
+          const errorMsg = Array.isArray(errorVal) ? errorVal[0] : errorVal;
+          if (typeof errorMsg === "string") {
+            // Capitalize field name for better readability
+            const fieldName = firstKey.charAt(0).toUpperCase() + firstKey.slice(1).replace(/_/g, " ");
+            throw new Error(`${fieldName}: ${errorMsg}`);
+          }
+        }
+      }
+    } else {
+      // Fallback for HTML error pages (e.g. Django debug page)
+      const text = await res.text();
+      const match = text.match(/<title>([\s\S]*?)<\/title>/i) || text.match(/<h1>([\s\S]*?)<\/h1>/i);
+      if (match && match[1]) {
+        throw new Error(`Server Error: ${match[1].trim()}`);
+      }
+    }
+  } catch (e) {
+    if (e instanceof Error) throw e;
+  }
+  throw new Error(defaultMsg);
+}
+
 export async function loginUser(payload: LoginRequest): Promise<AuthResponse> {
   const res = await apiFetch(`/api/login/`, {
     method: "POST",
     body: JSON.stringify(payload),
   });
-  if (!res.ok) throw new Error("Login failed");
+  if (!res.ok) {
+    await handleApiError(res, "Login failed");
+  }
   return res.json();
 }
 
@@ -59,7 +96,9 @@ export async function registerUser(payload: RegisterRequest): Promise<AuthRespon
     method: "POST",
     body: JSON.stringify(payload),
   });
-  if (!res.ok) throw new Error("Register failed");
+  if (!res.ok) {
+    await handleApiError(res, "Register failed");
+  }
   return res.json();
 }
 
