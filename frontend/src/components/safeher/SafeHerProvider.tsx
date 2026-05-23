@@ -269,7 +269,7 @@ export function SafeHerProvider({ children }: { children: React.ReactNode }) {
     };
 
     try {
-      const analysis = await analyzeRisk({
+      const apiResponse = await analyzeRisk({
         demoNight,
         demoIsolated,
         location: nextLocation,
@@ -280,9 +280,11 @@ export function SafeHerProvider({ children }: { children: React.ReactNode }) {
         routeDeviationKm,
         unsafeZoneProximity: "none",
       });
-      await applySnapshot(analysis, source === "sos");
-    } catch {
-      toast.error("Backend unreachable", { description: "Failed to connect to ML risk engine." });
+      await applySnapshot(apiResponse, source === "sos");
+    } catch (err) {
+      toast.error("Backend unreachable", {
+        description: err instanceof Error ? err.message : "Failed to connect to ML risk engine.",
+      });
     }
   };
 
@@ -327,8 +329,10 @@ export function SafeHerProvider({ children }: { children: React.ReactNode }) {
         message: "User initiated SOS from dashboard.",
       });
       await syncLocation("sos");
-    } catch {
-      toast.error("SOS Error", { description: "Failed to reach emergency backend." });
+    } catch (err) {
+      toast.error("SOS Error", {
+        description: err instanceof Error ? err.message : "Failed to reach emergency backend.",
+      });
     }
   };
 
