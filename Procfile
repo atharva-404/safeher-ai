@@ -1,1 +1,1 @@
-web: sh -c 'if [ -f backend/manage.py ]; then cd backend && gunicorn safeher_ai.wsgi:application --bind 0.0.0.0:$PORT; else gunicorn safeher_ai.wsgi:application --bind 0.0.0.0:$PORT; fi'
+web: sh -c 'if [ -f backend/manage.py ]; then cd backend && python manage.py migrate && gunicorn safeher_ai.wsgi:application --bind 0.0.0.0:$PORT; else python manage.py migrate && gunicorn safeher_ai.wsgi:application --bind 0.0.0.0:$PORT; fi'

@@ -8,6 +8,8 @@ urlpatterns = [
     path("logout/", views.logout, name="auth-logout"),
     path("token/refresh/", TokenRefreshView.as_view(), name="token-refresh"),
     path("profile/", views.profile, name="auth-profile"),
+    path("contacts/", views.emergency_contacts, name="contacts"),
+    path("contacts/<int:pk>/", views.emergency_contact_detail, name="contact-detail"),
     path("emergency/contacts/", views.emergency_contacts, name="emergency-contacts"),
     path("emergency/contacts/<int:pk>/", views.emergency_contact_detail, name="emergency-contact-detail"),
 ]
