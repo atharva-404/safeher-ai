@@ -64,13 +64,19 @@ def _send_email_alert(*, recipient_email: str, recipient_name: str, message: str
         </html>
         """
 
-        email = EmailMultiAlternatives(subject, plain_text, settings.DEFAULT_FROM_EMAIL, [recipient_email])
+        from django.core import mail
+        connection = mail.get_connection(timeout=5)
+        email = EmailMultiAlternatives(
+            subject,
+            plain_text,
+            settings.DEFAULT_FROM_EMAIL,
+            [recipient_email],
+            connection=connection,
+        )
         email.attach_alternative(html_content, "text/html")
 
         try:
-            from django.core import mail
-            connection = mail.get_connection(timeout=5)
-            sent = email.send(fail_silently=False, connection=connection)
+            sent = email.send(fail_silently=False)
             logger.info("Email send result for %s: %s", recipient_email, sent)
             return {
                 "channel": "email",
