@@ -12,7 +12,7 @@ export type AuthResponse = { user: AuthUser; tokens: AuthTokens };
 export type LoginRequest = { username?: string; phone?: string; password: string };
 export type RegisterRequest = { username: string; phone?: string; password: string };
 
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? "" : "https://safeher-ai-xzqa.onrender.com");
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (import.meta.env.DEV ? "" : "https://safeher-ai-xzqa.onrender.com");
 
 export function getAuthHeaders(): Record<string, string> {
   const headers: Record<string, string> = {
