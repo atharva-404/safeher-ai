@@ -23,7 +23,7 @@ def _location_from_payload(payload: dict) -> SafeHerLocation:
     )
 
 
-# ── Legacy endpoints (unchanged – frontend depends on these) ──────────────────
+# -- Legacy endpoints (unchanged - frontend depends on these) ------------------
 
 @api_view(["POST"])
 def start_tracking(request):
@@ -70,11 +70,11 @@ def current_risk(request):
     return Response(CURRENT_STATE)
 
 
-# ── New endpoints ─────────────────────────────────────────────────────────────
+# -- New endpoints -------------------------------------------------------------
 
 @api_view(["POST"])
 def location_log(request):
-    """POST /api/location/update/ — Persist a GPS sample to the database."""
+    """POST /api/location/update/ - Persist a GPS sample to the database."""
     from .models import LocationLog
 
     payload = request.data or {}
@@ -105,7 +105,7 @@ def location_log(request):
 
 @api_view(["GET"])
 def location_history(request):
-    """GET /api/location/history/ — Return recent location logs."""
+    """GET /api/location/history/ - Return recent location logs."""
     from .models import LocationLog
     from django.conf import settings
 
@@ -127,7 +127,7 @@ def location_history(request):
 
 @api_view(["GET"])
 def safe_zones(request):
-    """GET /api/location/safezones/ — Return nearby safe locations via Google Places API."""
+    """GET /api/location/safezones/ - Return nearby safe locations via Google Places API."""
     lat = float(request.query_params.get("lat", DEFAULT_LOCATION.latitude))
     lng = float(request.query_params.get("lng", DEFAULT_LOCATION.longitude))
     radius = int(request.query_params.get("radius", 1500))
@@ -145,7 +145,7 @@ def safe_zones(request):
 
 @api_view(["POST"])
 def risk_analyze(request):
-    """POST /api/risk/analyze/ — ML-enhanced risk analysis with Google Maps enrichment."""
+    """POST /api/risk/analyze/ - ML-enhanced risk analysis with Google Maps enrichment."""
     from .models import LocationLog, RiskAnalysis
     from agents.engine import evaluate_risk as agent_evaluate
 
@@ -164,7 +164,7 @@ def risk_analyze(request):
     route_deviation_km     = float(payload.get("routeDeviationKm", 0.0))
     unsafe_zone_proximity  = str(payload.get("unsafeZoneProximity", "none"))
 
-    # ─ Google Maps enrichment ─────────────────────────────────────────
+    # - Google Maps enrichment -----------------------------------------
     label = str(loc.get("label", ""))
     if not label or label in ("CST, Mumbai", "Unknown Area"):
         label = gmap.reverse_geocode(latitude, longitude)
@@ -172,7 +172,7 @@ def risk_analyze(request):
     if not demo_isolated and area_type == "normal":
         area_type = gmap.classify_area_type(latitude, longitude)
 
-    # ─ ML prediction ───────────────────────────────────────────────
+    # - ML prediction -----------------------------------------------
     engine = RiskMLEngine.get()
     result = engine.predict(
         latitude=latitude,
@@ -187,7 +187,7 @@ def risk_analyze(request):
         unsafe_zone_proximity=unsafe_zone_proximity,
     )
 
-    # ─ Persist ─────────────────────────────────────────────────────
+    # - Persist -----------------------------------------------------
     analysis = RiskAnalysis.objects.create(
         user=request.user if request.user.is_authenticated else None,
         session_id=payload.get("sessionId", "anonymous"),
@@ -201,13 +201,13 @@ def risk_analyze(request):
         alert_triggered=result["alert_triggered"],
     )
 
-    # ─ Nearby safe places (when risk is high) ─────────────────────
+    # - Nearby safe places (when risk is high) ---------------------
     nearby = []
     if result["alert_triggered"]:
         nearby = gmap.nearby_safe_places(latitude, longitude, radius_m=1000)
 
-    # ─ Agentic Action Engine — auto-chain when alert triggered ─────
-    # When risk is HIGH (≥71) or SOS is triggered, the agentic engine
+    # - Agentic Action Engine - auto-chain when alert triggered -----
+    # When risk is HIGH (>=71) or SOS is triggered, the agentic engine
     # autonomously decides and persists the action plan.  We embed
     # the result directly in the risk analysis response so the frontend
     # only needs one API call.
@@ -268,7 +268,7 @@ def risk_analyze(request):
 
 @api_view(["GET"])
 def risk_history(request):
-    """GET /api/risk/history/ — Recent persisted risk analyses."""
+    """GET /api/risk/history/ - Recent persisted risk analyses."""
     from .models import RiskAnalysis
 
     limit = int(request.query_params.get("limit", 50))

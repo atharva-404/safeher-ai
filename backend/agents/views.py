@@ -77,7 +77,7 @@ def agent_trigger(request):
 
 @api_view(["GET"])
 def agent_actions(request):
-    """GET /api/agent/actions/ — List persisted agent action history."""
+    """GET /api/agent/actions/ - List persisted agent action history."""
     limit = int(request.query_params.get("limit", 50))
     qs = AgentAction.objects.all()
     if request.user.is_authenticated:

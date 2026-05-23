@@ -15,12 +15,12 @@ from .serializers import (
 )
 
 
-# ── Auth ──────────────────────────────────────────────────────────────────────
+# -- Auth ----------------------------------------------------------------------
 
 @api_view(["POST"])
 @permission_classes([AllowAny])
 def register(request):
-    """POST /api/register/ — Create a new user account."""
+    """POST /api/register/ - Create a new user account."""
     serializer = RegisterSerializer(data=request.data)
     if serializer.is_valid():
         user = serializer.save()
@@ -43,7 +43,7 @@ def register(request):
 @api_view(["POST"])
 @permission_classes([AllowAny])
 def login(request):
-    """POST /api/login/ — Authenticate and receive JWT tokens."""
+    """POST /api/login/ - Authenticate and receive JWT tokens."""
     serializer = LoginSerializer(data=request.data)
     if serializer.is_valid():
         user = serializer.validated_data["user"]
@@ -65,7 +65,7 @@ def login(request):
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def logout(request):
-    """POST /api/logout/ — Blacklist the refresh token."""
+    """POST /api/logout/ - Blacklist the refresh token."""
     try:
         refresh_token = request.data.get("refresh")
         if not refresh_token:
@@ -79,12 +79,12 @@ def logout(request):
         return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
 
-# ── Profile ───────────────────────────────────────────────────────────────────
+# -- Profile -------------------------------------------------------------------
 
 @api_view(["GET", "PUT", "PATCH"])
 @permission_classes([IsAuthenticated])
 def profile(request):
-    """GET/PUT /api/profile/ — Retrieve or update the authenticated user's profile."""
+    """GET/PUT /api/profile/ - Retrieve or update the authenticated user's profile."""
     if request.method == "GET":
         serializer = ProfileSerializer(request.user)
         return Response(serializer.data)
@@ -96,12 +96,12 @@ def profile(request):
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-# ── Emergency Contacts ────────────────────────────────────────────────────────
+# -- Emergency Contacts --------------------------------------------------------
 
 @api_view(["GET", "POST"])
 @permission_classes([IsAuthenticated])
 def emergency_contacts(request):
-    """GET/POST /api/emergency/contacts/ — List or add emergency contacts."""
+    """GET/POST /api/emergency/contacts/ - List or add emergency contacts."""
     if request.method == "GET":
         contacts = EmergencyContact.objects.filter(user=request.user)
         serializer = EmergencyContactSerializer(contacts, many=True)

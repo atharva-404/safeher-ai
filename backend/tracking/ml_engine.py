@@ -1,32 +1,32 @@
 """
-SafeHer AI – ML Risk Prediction Engine (v2)
+SafeHer AI - ML Risk Prediction Engine (v2)
 ============================================
 Combines a GradientBoostingClassifier (trained on synthetic data at import
 time) with a transparent, explainable rule-based fallback.
 
 Feature vector (9 features):
-  0  hour_of_day            (0–23)
+  0  hour_of_day            (0-23)
   1  is_night               (0 or 1)
   2  area_type_enc          (0=normal, 1=crowded, 2=isolated)
   3  latitude               (float)
   4  longitude              (float)
-  5  speed_kmh              (float, clamped 0–200)
+  5  speed_kmh              (float, clamped 0-200)
   6  sos_triggered          (0 or 1)
-  7  route_deviation_km     (float, clamped 0–10)
+  7  route_deviation_km     (float, clamped 0-10)
   8  unsafe_zone_score      (0=none, 1=nearby, 2=inside)
 
 Risk Formula (rule-based score, also used as ML training signal):
   risk_score = night_factor        (5 day / 30 night)
              + area_factor         (10 crowded / 20 normal / 40 isolated)
-             + movement_factor     (0–15, proportional to speed)
+             + movement_factor     (0-15, proportional to speed)
              + deviation_factor    (0 none / 10 minor / 20 major deviation)
              + unsafe_zone_factor  (0 none / 10 nearby / 20 inside)
              + sos_override        (60 if SOS triggered)
 
 Risk Levels:
-   0–30  →  Low    (Safe)
-  31–70  →  Medium (Moderate)
-  71–100 →  High   (High Risk)
+   0-30  ->  Low    (Safe)
+  31-70  ->  Medium (Moderate)
+  71-100 ->  High   (High Risk)
 """
 from __future__ import annotations
 
@@ -42,7 +42,7 @@ logger = logging.getLogger(__name__)
 _AREA_ENC = {"normal": 0, "crowded": 1, "isolated": 2}
 _UNSAFE_ENC = {"none": 0, "nearby": 1, "inside": 2}
 
-# ── Risk formula weights ────────────────────────────────────────────────────────
+# -- Risk formula weights --------------------------------------------------------
 
 NIGHT_FACTOR_DAY   =  5
 NIGHT_FACTOR_NIGHT = 30
@@ -68,7 +68,7 @@ def _compute_rule_score(
     unsafe_enc: int,
     sos_triggered: bool,
 ) -> float:
-    """Transparent formula — used both for training labels and live fallback."""
+    """Transparent formula - used both for training labels and live fallback."""
     night  = NIGHT_FACTOR_NIGHT if is_night else NIGHT_FACTOR_DAY
     area   = AREA_FACTOR.get(area_enc, 20)
     move   = min(speed_kmh / MOVEMENT_SPEED_CAP, 1.0) * MOVEMENT_FACTOR_MAX
@@ -128,7 +128,7 @@ class RiskMLEngine:
             cls._instance = cls()
         return cls._instance
 
-    # ── Training ───────────────────────────────────────────────────────────────
+    # -- Training ---------------------------------------------------------------
 
     def _train(self):
         try:
@@ -150,9 +150,9 @@ class RiskMLEngine:
             self._trained = True
             logger.info("SafeHer ML risk engine v2 trained (9 features, 3000 samples).")
         except Exception as exc:
-            logger.warning("ML engine training failed – falling back to rule engine: %s", exc)
+            logger.warning("ML engine training failed - falling back to rule engine: %s", exc)
 
-    # ── Prediction ─────────────────────────────────────────────────────────────
+    # -- Prediction -------------------------------------------------------------
 
     def predict(
         self,
@@ -174,7 +174,7 @@ class RiskMLEngine:
         speed      = max(0.0, min(200.0, speed_kmh))
         sos_int    = 1 if sos_triggered else 0
 
-        # Route deviation encoding: none / minor (< 0.5 km) / major (≥ 0.5 km)
+        # Route deviation encoding: none / minor (< 0.5 km) / major (>= 0.5 km)
         if route_deviation_km <= 0.0:
             dev_enc = 0
         elif route_deviation_km < 0.5:
@@ -247,11 +247,11 @@ class RiskMLEngine:
             },
         }
 
-    # ── Helpers ────────────────────────────────────────────────────────────────
+    # -- Helpers ----------------------------------------------------------------
 
     @staticmethod
     def _level_to_risk_score(level_idx: int, probs: list, sos_triggered: bool) -> int:
-        """Map class probabilities to a 0–100 integer risk score."""
+        """Map class probabilities to a 0-100 integer risk score."""
         if sos_triggered:
             return 95
         midpoints = [15.0, 50.0, 85.0]
@@ -265,10 +265,10 @@ class RiskMLEngine:
     ) -> dict:
         factors = {}
         if sos_triggered:
-            factors["sos_triggered"] = "SOS manually activated – maximum risk override"
+            factors["sos_triggered"] = "SOS manually activated - maximum risk override"
         if is_night:
             factors["time_of_day"] = "Night hours significantly increase risk"
-        area_msgs = {2: "Isolated area – limited visibility and crowd presence"}
+        area_msgs = {2: "Isolated area - limited visibility and crowd presence"}
         if area_enc in area_msgs:
             factors["area_type"] = area_msgs[area_enc]
         if speed > 40:
@@ -276,11 +276,11 @@ class RiskMLEngine:
         if dev_enc == 1:
             factors["route_deviation"] = "Minor route deviation detected"
         elif dev_enc == 2:
-            factors["route_deviation"] = "Major route deviation – possible danger"
+            factors["route_deviation"] = "Major route deviation - possible danger"
         if unsafe_enc == 1:
             factors["unsafe_zone"] = "Near an unsafe zone"
         elif unsafe_enc == 2:
-            factors["unsafe_zone"] = "Inside an unsafe zone – seek safe area immediately"
+            factors["unsafe_zone"] = "Inside an unsafe zone - seek safe area immediately"
         if not factors:
             factors["summary"] = "Conditions appear safe"
         return factors

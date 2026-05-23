@@ -45,4 +45,4 @@ class EmergencyContact(models.Model):
         ordering = ["-is_primary", "name"]
 
     def __str__(self):
-        return f"{self.name} ({self.relationship}) – {self.user.username}"
+        return f"{self.name} ({self.relationship}) - {self.user.username}"

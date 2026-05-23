@@ -1,17 +1,17 @@
 """
-SafeHer AI – Agentic Decision Engine (v2)
+SafeHer AI - Agentic Decision Engine (v2)
 ==========================================
 Autonomously decides which protective actions to take based on the risk
 snapshot returned by the ML engine.
 
 Risk thresholds:
-  risk ≥ 85  → FULL EMERGENCY: SOS + alert authorities + notify contacts + record + share + safe place
-  risk ≥ 71  → HIGH RISK:      notify contacts + share location + safe place + increase monitoring
-  risk ≥ 31  → MEDIUM RISK:    share location + increase monitoring
-  risk < 31  → LOW RISK:       standard monitoring only
+  risk >= 85  -> FULL EMERGENCY: SOS + alert authorities + notify contacts + record + share + safe place
+  risk >= 71  -> HIGH RISK:      notify contacts + share location + safe place + increase monitoring
+  risk >= 31  -> MEDIUM RISK:    share location + increase monitoring
+  risk < 31  -> LOW RISK:       standard monitoring only
 
 Additional rule:
-  route_deviation_km ≥ 0.5  → prepend RECOMMEND_SAFE_ROUTE at priority 1 (any risk level ≥ medium)
+  route_deviation_km >= 0.5  -> prepend RECOMMEND_SAFE_ROUTE at priority 1 (any risk level >= medium)
 """
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import List
 
-# ── Action constants ──────────────────────────────────────────────────────────
+# -- Action constants ----------------------------------------------------------
 
 ACTION_SEND_SOS             = "SEND_SOS"
 ACTION_ALERT_AUTHORITIES    = "ALERT_AUTHORITIES"
@@ -45,7 +45,7 @@ class AgenticEngine:
     FULL_EMERGENCY_THRESHOLD = 85
     HIGH_RISK_THRESHOLD      = 71
     MEDIUM_RISK_THRESHOLD    = 31
-    ROUTE_DEVIATION_THRESHOLD = 0.5   # km — triggers RECOMMEND_SAFE_ROUTE
+    ROUTE_DEVIATION_THRESHOLD = 0.5   # km - triggers RECOMMEND_SAFE_ROUTE
 
     def evaluate(
         self,
@@ -100,7 +100,7 @@ class AgenticEngine:
         actions.sort(key=lambda a: a.priority)
         return actions
 
-    # ── Action Plans ──────────────────────────────────────────────────────────
+    # -- Action Plans ----------------------------------------------------------
 
     def _full_emergency_plan(self, risk_score: int, lat: float, lng: float, factors: dict) -> List[Action]:
         reasons_extra = _build_factor_reason(factors)
@@ -108,7 +108,7 @@ class AgenticEngine:
             Action(
                 action_type=ACTION_SEND_SOS,
                 priority=1,
-                reason=f"Risk score {risk_score} exceeded critical threshold (≥85). SOS activated autonomously. {reasons_extra}",
+                reason=f"Risk score {risk_score} exceeded critical threshold (>=85). SOS activated autonomously. {reasons_extra}",
                 payload={"latitude": lat, "longitude": lng, "risk_score": risk_score},
             ),
             Action(
@@ -124,7 +124,7 @@ class AgenticEngine:
                 payload={
                     "latitude": lat,
                     "longitude": lng,
-                    "message": "🚨 EMERGENCY: Your contact may be in danger. Please call immediately.",
+                    "message": "[SOS] EMERGENCY: Your contact may be in danger. Please call immediately.",
                 },
             ),
             Action(
@@ -153,11 +153,11 @@ class AgenticEngine:
             Action(
                 action_type=ACTION_NOTIFY_CONTACTS,
                 priority=1,
-                reason=f"Risk score {risk_score} — high risk. Emergency contacts notified. {reasons_extra}",
+                reason=f"Risk score {risk_score} - high risk. Emergency contacts notified. {reasons_extra}",
                 payload={
                     "latitude": lat,
                     "longitude": lng,
-                    "message": "⚠️ Alert: Your contact is in a high-risk area.",
+                    "message": "[Alert] Alert: Your contact is in a high-risk area.",
                 },
             ),
             Action(
@@ -185,7 +185,7 @@ class AgenticEngine:
             Action(
                 action_type=ACTION_SHARE_LOCATION,
                 priority=1,
-                reason=f"Moderate risk ({risk_score}) — location shared with primary contact.",
+                reason=f"Moderate risk ({risk_score}) - location shared with primary contact.",
                 payload={"latitude": lat, "longitude": lng, "live": False},
             ),
             Action(
@@ -201,13 +201,13 @@ class AgenticEngine:
             Action(
                 action_type=ACTION_INCREASE_MONITORING,
                 priority=1,
-                reason=f"Low risk ({risk_score}) — standard monitoring active.",
+                reason=f"Low risk ({risk_score}) - standard monitoring active.",
                 payload={"interval_seconds": 60},
             ),
         ]
 
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
+# -- Helpers -------------------------------------------------------------------
 
 def _build_factor_reason(factors: dict) -> str:
     """Build a human-readable reason suffix from ML factor keys."""
@@ -223,7 +223,7 @@ def _build_factor_reason(factors: dict) -> str:
     return " ".join(parts)
 
 
-# ── Module-level singleton ────────────────────────────────────────────────────
+# -- Module-level singleton ----------------------------------------------------
 
 _engine = AgenticEngine()
 

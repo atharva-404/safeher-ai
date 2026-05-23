@@ -12,28 +12,38 @@ from .services import dispatch_sos, process_voice
 
 @api_view(["POST"])
 def sos_activate(request):
-    """POST /api/sos/activate/ — Trigger an SOS alert."""
-    payload = request.data or {}
-    lat = float(payload.get("latitude", 0.0))
-    lng = float(payload.get("longitude", 0.0))
-    session_id = str(payload.get("sessionId", "anonymous"))
-    risk_score = int(payload.get("riskScore", 95))
-    message = str(payload.get("message", ""))
+    """POST /api/sos/activate/ - Trigger an SOS alert."""
+    try:
+        payload = request.data or {}
+        lat = float(payload.get("latitude", 0.0))
+        lng = float(payload.get("longitude", 0.0))
+        session_id = str(payload.get("sessionId", "anonymous"))
+        risk_score = int(payload.get("riskScore", 95))
+        message = str(payload.get("message", ""))
 
-    result = dispatch_sos(
-        user=request.user,
-        session_id=session_id,
-        latitude=lat,
-        longitude=lng,
-        risk_score=risk_score,
-        message=message,
-    )
-    return Response(result, status=http_status.HTTP_201_CREATED)
+        result = dispatch_sos(
+            user=request.user,
+            session_id=session_id,
+            latitude=lat,
+            longitude=lng,
+            risk_score=risk_score,
+            message=message,
+        )
+        return Response(result, status=http_status.HTTP_201_CREATED)
+    except Exception as exc:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.exception("SOS activation failed unexpectedly")
+        return Response(
+            {"error": f"SOS activation failed: {str(exc)}"},
+            status=http_status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
 
 
 @api_view(["POST"])
 def alert_send(request):
-    """POST /api/alerts/send/ — Send a custom alert to emergency contacts."""
+    """POST /api/alerts/send/ - Send a custom alert to emergency contacts."""
     payload = request.data or {}
     lat = float(payload.get("latitude", 0.0))
     lng = float(payload.get("longitude", 0.0))
@@ -67,7 +77,7 @@ def alert_send(request):
 
 @api_view(["GET"])
 def alert_list(request):
-    """GET /api/alerts/ — List recent emergency alerts."""
+    """GET /api/alerts/ - List recent emergency alerts."""
     limit = int(request.query_params.get("limit", 50))
     qs = EmergencyAlert.objects.all()
     if request.user.is_authenticated:

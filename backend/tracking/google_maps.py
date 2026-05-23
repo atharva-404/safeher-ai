@@ -1,13 +1,13 @@
 """
-SafeHer AI — Google Maps Service Layer
+SafeHer AI - Google Maps Service Layer
 =======================================
 Central module for all Google Maps REST API interactions.
 
 APIs used:
-  • Geocoding API   — reverse geocode GPS → area name
-  • Places API      — nearby hospitals, police stations, area classification
-  • Directions API  — real walking/driving routes with polyline waypoints
-  • Static Maps API — snapshot URL for SOS alert messages
+  * Geocoding API   - reverse geocode GPS -> area name
+  * Places API      - nearby hospitals, police stations, area classification
+  * Directions API  - real walking/driving routes with polyline waypoints
+  * Static Maps API - snapshot URL for SOS alert messages
 
 All calls fail gracefully and return sensible fallback values
 so the app keeps working even if the API key is not configured.
@@ -23,7 +23,7 @@ from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
+# -- Helpers -------------------------------------------------------------------
 
 def _api_key() -> str:
     """Return the Google Maps API key from settings or env."""
@@ -52,7 +52,7 @@ def _get(url: str, params: dict) -> dict | None:
         return None
 
 
-# ── Geocoding ─────────────────────────────────────────────────────────────────
+# -- Geocoding -----------------------------------------------------------------
 
 def reverse_geocode(lat: float, lng: float) -> str:
     """
@@ -78,7 +78,7 @@ def reverse_geocode(lat: float, lng: float) -> str:
     return data["results"][0].get("formatted_address", "Mumbai").split(",")[0]
 
 
-# ── Area Classification ────────────────────────────────────────────────────────
+# -- Area Classification --------------------------------------------------------
 
 def classify_area_type(lat: float, lng: float, radius_m: int = 250) -> str:
     """
@@ -110,7 +110,7 @@ def classify_area_type(lat: float, lng: float, radius_m: int = 250) -> str:
     return "normal"
 
 
-# ── Nearby Safe Places ────────────────────────────────────────────────────────
+# -- Nearby Safe Places --------------------------------------------------------
 
 def nearby_safe_places(lat: float, lng: float, radius_m: int = 1500) -> list[dict]:
     """
@@ -170,7 +170,7 @@ def _fallback_safe_places(lat: float, lng: float) -> list[dict]:
     ]
 
 
-# ── Directions API ─────────────────────────────────────────────────────────────
+# -- Directions API -------------------------------------------------------------
 
 def get_route_directions(
     origin_lat: float,
@@ -251,7 +251,7 @@ def _decode_steps_to_waypoints(steps: list[dict]) -> list[dict]:
     return waypoints
 
 
-# ── Static Map URL ─────────────────────────────────────────────────────────────
+# -- Static Map URL -------------------------------------------------------------
 
 def static_map_url(lat: float, lng: float, zoom: int = 15, size: str = "400x300") -> str:
     """

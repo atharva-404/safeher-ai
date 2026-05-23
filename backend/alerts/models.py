@@ -38,7 +38,7 @@ class EmergencyAlert(models.Model):
         ordering = ["-created_at"]
 
     def __str__(self):
-        return f"[{self.alert_type}] {self.status} – {self.created_at:%Y-%m-%d %H:%M}"
+        return f"[{self.alert_type}] {self.status} - {self.created_at:%Y-%m-%d %H:%M}"
 
 
 class VoiceTrigger(models.Model):
@@ -62,4 +62,4 @@ class VoiceTrigger(models.Model):
         ordering = ["-timestamp"]
 
     def __str__(self):
-        return f'"{self.keyword}" – {self.timestamp:%H:%M}'
+        return f'"{self.keyword}" - {self.timestamp:%H:%M}'

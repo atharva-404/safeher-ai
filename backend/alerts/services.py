@@ -1,8 +1,8 @@
 """
-SafeHer AI – Alert Services
+SafeHer AI - Alert Services
 =============================
 Handles SOS dispatch, alert creation, and voice keyword detection.
-The ``_dispatch_alert`` function is intentionally a stub — plug in
+The ``_dispatch_alert`` function is intentionally a stub - plug in
 Twilio/Firebase/SendGrid credentials here for production SMS/push delivery.
 """
 from __future__ import annotations
@@ -79,7 +79,7 @@ def _send_email_alert(*, recipient_email: str, recipient_name: str, message: str
                 "sent_result": sent,
             }
         except Exception as exc:
-            # Primary backend failed — log and attempt smtplib fallback if
+            # Primary backend failed - log and attempt smtplib fallback if
             # SMTP credentials are present in settings. This uses the
             # lightweight fallback in backend.utils.mail to send the same
             # HTML/plain payload directly.
@@ -126,11 +126,11 @@ def _send_email_alert(*, recipient_email: str, recipient_name: str, message: str
 
 def _dispatch_alert(*, contact_name: str, contact_phone: str, message: str, location: dict) -> dict:
     """
-    Stub dispatcher — replace with Twilio/Firebase for real delivery.
+    Stub dispatcher - replace with Twilio/Firebase for real delivery.
     Returns a result dict describing the simulated dispatch.
     """
     logger.info(
-        "ALERT DISPATCH [SIMULATED]: '%s' → %s | msg: %s",
+        "ALERT DISPATCH [SIMULATED]: '%s' -> %s | msg: %s",
         contact_name, contact_phone, message
     )
     return {
@@ -196,7 +196,7 @@ def dispatch_sos(*, user, session_id: str, latitude: float, longitude: float,
 
             merged = {**result, **email_result, "relationship": contact.relationship, "is_primary": contact.is_primary}
             contacts_notified.append(merged)
-            logger.info("Notified contact: %s — %s", contact.name, merged)
+            logger.info("Notified contact: %s - %s", contact.name, merged)
 
         # If user has no contacts with delivery, also send to user's own email as fallback
         if not contacts_notified and getattr(user, "email", ""):

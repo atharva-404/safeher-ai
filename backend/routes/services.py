@@ -1,11 +1,11 @@
 """
-SafeHer AI – Safe Route Recommendation Engine
+SafeHer AI - Safe Route Recommendation Engine
 ==============================================
 Scores route alternatives based on:
-  • Distance from known safe zones (hospitals, police stations)
-  • Time-of-day risk multiplier
-  • Area type (isolated penalised, crowded preferred)
-  • Historical risk data for waypoints (if available)
+  * Distance from known safe zones (hospitals, police stations)
+  * Time-of-day risk multiplier
+  * Area type (isolated penalised, crowded preferred)
+  * Historical risk data for waypoints (if available)
 
 Uses geopy for Haversine distance calculations.
 No external routing API is required for the demo.
@@ -31,8 +31,8 @@ class RouteOption:
     route_id: str
     name: str
     waypoints: List[Waypoint]
-    safety_score: int        # 0–100 (higher = safer)
-    risk_score: int          # 0–100
+    safety_score: int        # 0-100 (higher = safer)
+    risk_score: int          # 0-100
     estimated_minutes: int
     distance_km: float
     safe_zone_proximity_m: float | None
@@ -132,7 +132,7 @@ def _generate_route_waypoints(origin: Waypoint, dest: Waypoint, variant: int) ->
         except Exception:
             pass  # fall through to synthetic
 
-    # Synthetic fallback — slight deviation per variant
+    # Synthetic fallback - slight deviation per variant
     deviation = (variant - 1) * 0.005
     mid_lat = (origin.latitude + dest.latitude) / 2 + deviation
     mid_lng = (origin.longitude + dest.longitude) / 2 + deviation
@@ -183,7 +183,7 @@ class SafeRouteEngine:
 
             route = RouteOption(
                 route_id=f"route_{i}",
-                name=f"Route {i} – {'Safest' if i == 1 else 'Alternative ' + str(i - 1)}",
+                name=f"Route {i} - {'Safest' if i == 1 else 'Alternative ' + str(i - 1)}",
                 waypoints=waypoints,
                 safety_score=max(0, scored["safety_score"] + (3 - i) * 5),
                 risk_score=max(0, scored["risk_score"] - (3 - i) * 5),
@@ -202,10 +202,10 @@ class SafeRouteEngine:
     @staticmethod
     def _recommendation(safety_score: int) -> str:
         if safety_score >= 80:
-            return "Highly recommended – safe and well-lit route."
+            return "Highly recommended - safe and well-lit route."
         if safety_score >= 60:
-            return "Moderate safety – stay alert and share location."
-        return "Use with caution – consider a safer alternative."
+            return "Moderate safety - stay alert and share location."
+        return "Use with caution - consider a safer alternative."
 
 
 _engine = SafeRouteEngine()

@@ -10,7 +10,7 @@ try:
     from dotenv import load_dotenv
     load_dotenv(BASE_DIR / ".env")
 except ImportError:
-    pass  # python-dotenv not installed — use real env vars
+    pass  # python-dotenv not installed - use real env vars
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -110,7 +110,7 @@ AUTH_USER_MODEL = "accounts.User"
 
 CORS_ALLOW_ALL_ORIGINS = True
 
-# ── REST Framework ────────────────────────────────────────────────────────────
+# -- REST Framework ------------------------------------------------------------
 REST_FRAMEWORK = {
     "DEFAULT_RENDERER_CLASSES": [
         "rest_framework.renderers.JSONRenderer",
@@ -125,7 +125,7 @@ REST_FRAMEWORK = {
     ],
 }
 
-# ── JWT ───────────────────────────────────────────────────────────────────────
+# -- JWT -----------------------------------------------------------------------
 
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(hours=2),
@@ -135,10 +135,10 @@ SIMPLE_JWT = {
     "AUTH_HEADER_TYPES": ("Bearer",),
 }
 
-# ── Google Maps ───────────────────────────────────────────────────────────────
+# -- Google Maps ---------------------------------------------------------------
 GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_MAPS_API_KEY", "")
 
-# ── SafeHer AI Config ─────────────────────────────────────────────────────────
+# -- SafeHer AI Config ---------------------------------------------------------
 SAFEHER_RISK_ALERT_THRESHOLD = 70
 SAFEHER_VOICE_KEYWORDS = ["help", "save me", "emergency", "danger", "sos", "bachao", "madad"]
 SAFEHER_MAX_LOCATION_HISTORY = 500

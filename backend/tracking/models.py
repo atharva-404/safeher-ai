@@ -58,4 +58,4 @@ class RiskAnalysis(models.Model):
         ordering = ["-analyzed_at"]
 
     def __str__(self):
-        return f"[{self.analyzed_at:%H:%M}] {self.risk_level} – score {self.risk_score}"
+        return f"[{self.analyzed_at:%H:%M}] {self.risk_level} - score {self.risk_score}"

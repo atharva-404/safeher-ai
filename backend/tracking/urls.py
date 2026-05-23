@@ -2,7 +2,7 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
-    # Legacy – frontend depends on these exact paths
+    # Legacy - frontend depends on these exact paths
     path("start-tracking", views.start_tracking, name="start-tracking"),
     path("location", views.location_update, name="location"),
     path("risk", views.current_risk, name="risk"),
