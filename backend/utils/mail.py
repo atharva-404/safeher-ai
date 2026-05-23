@@ -55,7 +55,7 @@ def send_via_smtp(subject: str, from_email: str, to_email: str, plain_text: str,
 
     logger.info("SMTP fallback: connecting to %s:%s (tls=%s) as %s", host, port, use_tls, bool(user))
 
-    server = smtplib.SMTP(host, port, timeout=20)
+    server = smtplib.SMTP(host, port, timeout=5)
     try:
         server.ehlo()
         if use_tls:

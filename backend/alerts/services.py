@@ -68,7 +68,9 @@ def _send_email_alert(*, recipient_email: str, recipient_name: str, message: str
         email.attach_alternative(html_content, "text/html")
 
         try:
-            sent = email.send(fail_silently=False)
+            from django.core import mail
+            connection = mail.get_connection(timeout=5)
+            sent = email.send(fail_silently=False, connection=connection)
             logger.info("Email send result for %s: %s", recipient_email, sent)
             return {
                 "channel": "email",
