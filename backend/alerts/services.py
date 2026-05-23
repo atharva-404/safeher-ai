@@ -156,7 +156,7 @@ def dispatch_sos(*, user, session_id: str, latitude: float, longitude: float,
 
     default_message = (
         message
-        or f"🚨 SOS ALERT: Your contact may be in danger near {area_label}, Mumbai. "
+        or f"SOS ALERT: Your contact may be in danger near {area_label}, Mumbai. "
            "Please call them immediately or contact emergency services (100/112)."
     )
 
@@ -190,7 +190,7 @@ def dispatch_sos(*, user, session_id: str, latitude: float, longitude: float,
             result = _dispatch_alert(
                 contact_name=contact.name,
                 contact_phone=contact.phone,
-                message=default_message + (f"\n📍 Map: {map_link}" if map_link else ""),
+                message=default_message + (f"\nMap: {map_link}" if map_link else ""),
                 location={"latitude": latitude, "longitude": longitude, "label": area_label},
             )
 
