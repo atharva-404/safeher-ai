@@ -34,7 +34,15 @@ export function getAuthHeaders(): Record<string, string> {
 }
 
 async function apiFetch(path: string, options: RequestInit = {}): Promise<Response> {
-  const url = `${API_BASE_URL}${path}`;
+  let cleanBase = API_BASE_URL;
+  if (cleanBase.endsWith("/")) {
+    cleanBase = cleanBase.slice(0, -1);
+  }
+  let cleanPath = path;
+  if (!cleanPath.startsWith("/")) {
+    cleanPath = `/${cleanPath}`;
+  }
+  const url = `${cleanBase}${cleanPath}`;
   const headers = {
     ...getAuthHeaders(),
     ...options.headers,
