@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Mic, MicOff, Volume2, ShieldAlert, Info, CheckCircle2 } from "lucide-react";
 import { SectionHeader } from "./Dashboard";
 import { useVoiceSOS, SOS_KEYWORDS } from "@/hooks/use-voice-sos";
-import { useSafeHer } from "./SafeHerProvider";
 
 // ─── Waveform visualizer ──────────────────────────────────────────────────────
 function WaveformDisplay({ active, detected }: { active: boolean; detected: boolean }) {
@@ -76,14 +75,17 @@ function KeywordPill({
 
 // ─── Main section ─────────────────────────────────────────────────────────────
 export function VoiceSOSSection() {
-  const { triggerSOS } = useSafeHer();
   const [matchedKeyword, setMatchedKeyword] = useState<string | null>(null);
 
+  // NOTE: The global VoiceSOSIndicator widget (bottom-right FAB) is the single
+  // source of truth for mic access and SOS dispatch. This section is display-only
+  // and re-uses the same hook so the UI reflects the same listening state,
+  // but onKeywordDetected here only updates local UI — it does NOT call triggerSOS
+  // a second time, preventing duplicate SOS dispatches.
   const { state, errorMessage, toggle } = useVoiceSOS({
-    onKeywordDetected: async (kw) => {
+    onKeywordDetected: (kw) => {
       setMatchedKeyword(kw);
-      await triggerSOS();
-      // Reset matched after 4 s
+      // Reset matched highlight after 4 s
       setTimeout(() => setMatchedKeyword(null), 4000);
     },
   });
