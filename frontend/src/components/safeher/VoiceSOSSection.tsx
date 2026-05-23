@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Mic, MicOff, Volume2, ShieldAlert, Info, CheckCircle2 } from "lucide-react";
 import { SectionHeader } from "./Dashboard";
-import { useVoiceSOS, SOS_KEYWORDS } from "@/hooks/use-voice-sos";
+import { useVoiceSOSContext } from "@/hooks/use-voice-sos-context";
+import { SOS_KEYWORDS } from "@/hooks/use-voice-sos";
 
 // ─── Waveform visualizer ──────────────────────────────────────────────────────
 function WaveformDisplay({ active, detected }: { active: boolean; detected: boolean }) {
@@ -77,18 +78,20 @@ function KeywordPill({
 export function VoiceSOSSection() {
   const [matchedKeyword, setMatchedKeyword] = useState<string | null>(null);
 
-  // NOTE: The global VoiceSOSIndicator widget (bottom-right FAB) is the single
-  // source of truth for mic access and SOS dispatch. This section is display-only
-  // and re-uses the same hook so the UI reflects the same listening state,
-  // but onKeywordDetected here only updates local UI — it does NOT call triggerSOS
-  // a second time, preventing duplicate SOS dispatches.
-  const { state, errorMessage, toggle } = useVoiceSOS({
-    onKeywordDetected: (kw) => {
-      setMatchedKeyword(kw);
-      // Reset matched highlight after 4 s
-      setTimeout(() => setMatchedKeyword(null), 4000);
-    },
-  });
+  // Share the SAME mic/SOS instance from VoiceSOSProvider.
+  // onKeywordDetected here only updates local highlight UI.
+  // triggerSOS is called exactly once by the VoiceSOSProvider itself.
+  const { state, errorMessage, toggle } = useVoiceSOSContext();
+
+  // Track last detected keyword for pill highlight
+  const { lastKeyword } = useVoiceSOSContext();
+  useEffect(() => {
+    if (lastKeyword) {
+      setMatchedKeyword(lastKeyword);
+      const t = setTimeout(() => setMatchedKeyword(null), 4000);
+      return () => clearTimeout(t);
+    }
+  }, [lastKeyword]);
 
   const isListening = state === "listening";
   const isDetected = state === "detected";

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Mic, MicOff, Volume2, AlertTriangle, X, ShieldAlert } from "lucide-react";
-import { useVoiceSOS, SOS_KEYWORDS, type SOSKeyword } from "@/hooks/use-voice-sos";
-import { useSafeHer } from "./SafeHerProvider";
+import { useVoiceSOSContext } from "@/hooks/use-voice-sos-context";
+import { SOS_KEYWORDS, type SOSKeyword } from "@/hooks/use-voice-sos";
 
 // ─── Waveform bars ────────────────────────────────────────────────────────────
 function AudioBars({ active }: { active: boolean }) {
@@ -53,29 +53,21 @@ function KeywordDetectedFlash({ keyword }: { keyword: SOSKeyword | null }) {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 export function VoiceSOSIndicator() {
-  const { triggerSOS } = useSafeHer();
   const [expanded, setExpanded] = useState(false);
   const [showFlash, setShowFlash] = useState(false);
   const flashTimerRef = useRef<number | null>(null);
 
-  const handleKeyword = async (keyword: SOSKeyword) => {
-    setShowFlash(true);
-    if (flashTimerRef.current) window.clearTimeout(flashTimerRef.current);
-    flashTimerRef.current = window.setTimeout(() => setShowFlash(false), 3500);
-    await triggerSOS();
-  };
+  // Use shared context — single mic instance shared with VoiceSOSSection
+  const { state, lastKeyword, errorMessage, start, stop, toggle } = useVoiceSOSContext();
 
-  const { state, lastKeyword, errorMessage, start, stop, toggle } = useVoiceSOS({
-    onKeywordDetected: handleKeyword,
-  });
-
-  // Auto-resume listening after keyword detection
+  // Show flash overlay when keyword detected
   useEffect(() => {
     if (state === "detected") {
-      const t = window.setTimeout(() => start(), 4000);
-      return () => window.clearTimeout(t);
+      setShowFlash(true);
+      if (flashTimerRef.current) window.clearTimeout(flashTimerRef.current);
+      flashTimerRef.current = window.setTimeout(() => setShowFlash(false), 3500);
     }
-  }, [state, start]);
+  }, [state]);
 
   useEffect(() => () => {
     if (flashTimerRef.current) window.clearTimeout(flashTimerRef.current);
