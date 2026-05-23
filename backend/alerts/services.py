@@ -64,6 +64,46 @@ def _send_email_alert(*, recipient_email: str, recipient_name: str, message: str
         </html>
         """
 
+        # Check if Resend API is configured to bypass Render's SMTP network blocks
+        import os
+        resend_key = os.getenv("RESEND_API_KEY") or getattr(settings, "RESEND_API_KEY", "")
+        if resend_key:
+            import requests
+            sender = os.getenv("RESEND_FROM_EMAIL") or getattr(settings, "RESEND_FROM_EMAIL", "") or "onboarding@resend.dev"
+            logger.info("Attempting email dispatch via Resend API to %s", recipient_email)
+            try:
+                resp = requests.post(
+                    "https://api.resend.com/emails",
+                    headers={
+                        "Authorization": f"Bearer {resend_key.strip()}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "from": sender,
+                        "to": [recipient_email],
+                        "subject": subject,
+                        "html": html_content,
+                        "text": plain_text,
+                    },
+                    timeout=5,
+                )
+                if resp.status_code in (200, 201):
+                    logger.info("Email sent successfully via Resend API to %s", recipient_email)
+                    return {
+                        "channel": "email",
+                        "contact": recipient_name,
+                        "email": recipient_email,
+                        "delivered": True,
+                        "backend": "resend_api",
+                        "sent_result": resp.json(),
+                    }
+                else:
+                    logger.warning("Resend API failed: %s %s", resp.status_code, resp.text)
+                    raise Exception(f"Resend API returned status {resp.status_code}: {resp.text}")
+            except Exception as exc:
+                logger.exception("Resend API send failed to %s", recipient_email)
+                # Fall back to standard Django mail flow
+
         from django.core import mail
         connection = mail.get_connection(timeout=5)
         email = EmailMultiAlternatives(
