@@ -4,7 +4,7 @@ services:
     env: python
     rootDir: backend
     buildCommand: if [ -f requirements.txt ]; then pip install -r requirements.txt; else pip install -r backend/requirements.txt; fi
-    startCommand: sh -c 'if [ -f manage.py ]; then python manage.py migrate && gunicorn safeher_ai.wsgi:application --bind 0.0.0.0:$PORT; else cd backend && python manage.py migrate && gunicorn safeher_ai.wsgi:application --bind 0.0.0.0:$PORT; fi'
+    startCommand: ./start.sh
     autoDeploy: true
     envVars:
       - key: DJANGO_DEBUG
