@@ -12,10 +12,42 @@ export type AuthResponse = { user: AuthUser; tokens: AuthTokens };
 export type LoginRequest = { username?: string; phone?: string; password: string };
 export type RegisterRequest = { username: string; phone?: string; password: string };
 
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? "" : "https://safeher-ai-xzqa.onrender.com");
+
+export function getAuthHeaders(): Record<string, string> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  try {
+    const sessionStr = localStorage.getItem("safeher-auth-session");
+    if (sessionStr) {
+      const session = JSON.parse(sessionStr);
+      const token = session?.tokens?.access;
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+    }
+  } catch (e) {
+    console.error("Failed to read auth token from localStorage", e);
+  }
+  return headers;
+}
+
+async function apiFetch(path: string, options: RequestInit = {}): Promise<Response> {
+  const url = `${API_BASE_URL}${path}`;
+  const headers = {
+    ...getAuthHeaders(),
+    ...options.headers,
+  };
+  return fetch(url, {
+    ...options,
+    headers,
+  });
+}
+
 export async function loginUser(payload: LoginRequest): Promise<AuthResponse> {
-  const res = await fetch(`/api/login/`, {
+  const res = await apiFetch(`/api/login/`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
   if (!res.ok) throw new Error("Login failed");
@@ -23,9 +55,8 @@ export async function loginUser(payload: LoginRequest): Promise<AuthResponse> {
 }
 
 export async function registerUser(payload: RegisterRequest): Promise<AuthResponse> {
-  const res = await fetch(`/api/register/`, {
+  const res = await apiFetch(`/api/register/`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
   if (!res.ok) throw new Error("Register failed");
@@ -70,9 +101,8 @@ export type RiskAnalysisResponse = {
 };
 
 export async function analyzeRisk(payload: any): Promise<RiskAnalysisResponse> {
-  const res = await fetch(`/api/risk/analyze/`, {
+  const res = await apiFetch(`/api/risk/analyze/`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
   if (!res.ok) throw new Error("analyzeRisk failed");
@@ -80,9 +110,8 @@ export async function analyzeRisk(payload: any): Promise<RiskAnalysisResponse> {
 }
 
 export async function triggerAgent(payload: any): Promise<{ actions: EmbeddedAgentAction[] }> {
-  const res = await fetch(`/api/agent/trigger/`, {
+  const res = await apiFetch(`/api/agent/trigger/`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
   if (!res.ok) throw new Error("triggerAgent failed");
@@ -90,9 +119,8 @@ export async function triggerAgent(payload: any): Promise<{ actions: EmbeddedAge
 }
 
 export async function activateSOS(payload: { latitude: number; longitude: number; sessionId?: string; riskScore?: number; message?: string }): Promise<any> {
-  const res = await fetch(`/api/sos/activate/`, {
+  const res = await apiFetch(`/api/sos/activate/`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
   if (!res.ok) throw new Error("activateSOS failed");
@@ -113,15 +141,14 @@ export type EmergencyContact = {
 export type ProfileUpdateRequest = { email?: string; first_name?: string; last_name?: string; phone?: string };
 
 export async function getProfile(): Promise<Record<string, any>> {
-  const res = await fetch(`/api/profile/`, { method: "GET" });
+  const res = await apiFetch(`/api/profile/`, { method: "GET" });
   if (!res.ok) throw new Error("getProfile failed");
   return res.json();
 }
 
 export async function updateProfile(payload: ProfileUpdateRequest): Promise<Record<string, any>> {
-  const res = await fetch(`/api/profile/`, {
+  const res = await apiFetch(`/api/profile/`, {
     method: "PUT",
-    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
   if (!res.ok) throw new Error("updateProfile failed");
@@ -129,15 +156,14 @@ export async function updateProfile(payload: ProfileUpdateRequest): Promise<Reco
 }
 
 export async function listEmergencyContacts(): Promise<{ contacts: EmergencyContact[] }> {
-  const res = await fetch(`/api/contacts/`, { method: "GET" });
+  const res = await apiFetch(`/api/contacts/`, { method: "GET" });
   if (!res.ok) throw new Error("listEmergencyContacts failed");
   return res.json();
 }
 
 export async function createEmergencyContact(payload: { name: string; phone: string; email?: string; relationship?: string; is_primary?: boolean }): Promise<EmergencyContact> {
-  const res = await fetch(`/api/contacts/`, {
+  const res = await apiFetch(`/api/contacts/`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
   if (!res.ok) throw new Error("createEmergencyContact failed");
@@ -145,9 +171,8 @@ export async function createEmergencyContact(payload: { name: string; phone: str
 }
 
 export async function updateEmergencyContact(id: number, payload: Partial<{ name: string; phone: string; email?: string; relationship?: string; is_primary?: boolean }>): Promise<EmergencyContact> {
-  const res = await fetch(`/api/contacts/${id}/`, {
+  const res = await apiFetch(`/api/contacts/${id}/`, {
     method: "PUT",
-    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
   if (!res.ok) throw new Error("updateEmergencyContact failed");
@@ -155,7 +180,7 @@ export async function updateEmergencyContact(id: number, payload: Partial<{ name
 }
 
 export async function deleteEmergencyContact(id: number): Promise<void> {
-  const res = await fetch(`/api/contacts/${id}/`, { method: "DELETE" });
+  const res = await apiFetch(`/api/contacts/${id}/`, { method: "DELETE" });
   if (!res.ok) throw new Error("deleteEmergencyContact failed");
   return;
 }

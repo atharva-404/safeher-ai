@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { Shield, Radar, Navigation2, Locate, ShieldAlert } from "lucide-react";
 import { ensureGoogleMapsLoaded, isGoogleMapsConfigured } from "@/lib/google-maps-loader";
 import { useSafeHer } from "./SafeHerProvider";
+import { API_BASE_URL, getAuthHeaders } from "@/lib/safeher-api";
 
 // ─── Dark map style matching SafeHer's theme ──────────────────────────────
 // Plain objects — no google.* values used here, so safe to define at module scope
@@ -236,7 +237,10 @@ export function GoogleTrackingMap() {
 
     try {
       const resp = await fetch(
-        `/api/routes/nearby-safe-places/?lat=${center.lat}&lng=${center.lng}&radius=2000`,
+        `${API_BASE_URL}/api/routes/nearby-safe-places/?lat=${center.lat}&lng=${center.lng}&radius=2000`,
+        {
+          headers: getAuthHeaders(),
+        }
       );
       if (!resp.ok) throw new Error("backend error");
       const data: {
