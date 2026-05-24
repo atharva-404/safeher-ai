@@ -1,12 +1,11 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Shield, Radar, Navigation2, Locate, ShieldAlert } from "lucide-react";
-import { ensureGoogleMapsLoaded, isGoogleMapsConfigured } from "@/lib/google-maps-loader";
+import { Shield, Radar, Navigation2, Locate, ShieldAlert, MapPin } from "lucide-react";
+import { ensureGoogleMapsLoaded, isGoogleMapsConfigured, findNearbyPlaces } from "@/lib/google-maps-loader";
 import { useSafeHer } from "./SafeHerProvider";
 import { API_BASE_URL, getAuthHeaders } from "@/lib/safeher-api";
 
 // ─── Dark map style matching SafeHer's theme ──────────────────────────────
-// Plain objects — no google.* values used here, so safe to define at module scope
-const DARK_STYLE = [
+const DARK_STYLE: google.maps.MapTypeStyle[] = [
   { elementType: "geometry", stylers: [{ color: "#0d0d1a" }] },
   { elementType: "labels.text.stroke", stylers: [{ color: "#0d0d1a" }] },
   { elementType: "labels.text.fill", stylers: [{ color: "#7a7a9a" }] },
@@ -26,13 +25,10 @@ const DARK_STYLE = [
   { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#2a3a5a" }] },
 ];
 
-const SATELLITE_STYLE: never[] = [];
-
 // ─── Helpers — only called after ensureGoogleMapsLoaded() resolves ──────────
-function makeUserIcon(color: string) {
+function makeUserIcon(color: string): google.maps.Symbol {
   return {
-    // google.maps.SymbolPath.CIRCLE === 0
-    path: 0 as unknown as google.maps.SymbolPath,
+    path: google.maps.SymbolPath.CIRCLE,
     scale: 11,
     fillColor: color,
     fillOpacity: 1,
@@ -41,12 +37,12 @@ function makeUserIcon(color: string) {
   };
 }
 
-function makeSafeIcon(color: string) {
+function makePlaceIcon(color: string): google.maps.Symbol {
   return {
-    path: 0 as unknown as google.maps.SymbolPath,
-    scale: 7,
+    path: google.maps.SymbolPath.CIRCLE,
+    scale: 8,
     fillColor: color,
-    fillOpacity: 0.85,
+    fillOpacity: 0.9,
     strokeColor: "#ffffff",
     strokeWeight: 2,
   };
@@ -75,6 +71,7 @@ export function GoogleTrackingMap() {
     alertTriggered,
     isTracking,
     triggerSOS,
+    nearbySafePlaces,
   } = useSafeHer();
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -85,6 +82,7 @@ export function GoogleTrackingMap() {
   const outerCircleRef = useRef<google.maps.Circle | null>(null);
   const sosMarkerRef = useRef<google.maps.Marker | null>(null);
   const nearbyMarkersRef = useRef<google.maps.Marker[]>([]);
+  const routeLineRef = useRef<google.maps.Polyline | null>(null);
   const infoWindowRef = useRef<google.maps.InfoWindow | null>(null);
   const trailPointsRef = useRef<{ lat: number; lng: number }[]>([]);
 
@@ -92,6 +90,8 @@ export function GoogleTrackingMap() {
   const [mapError, setMapError] = useState<string | null>(null);
   const [isSatellite, setIsSatellite] = useState(false);
   const [nearbyCount, setNearbyCount] = useState(0);
+  const [isLoadingNearby, setIsLoadingNearby] = useState(false);
+  const [routingTo, setRoutingTo] = useState<string | null>(null);
 
   const center = { lat: location.latitude, lng: location.longitude };
   const accent = alertTriggered ? "#ef4444" : "#a4e3be";
@@ -109,7 +109,7 @@ export function GoogleTrackingMap() {
 
         const map = new google.maps.Map(containerRef.current, {
           center,
-          zoom: 16,
+          zoom: 15,
           styles: DARK_STYLE,
           disableDefaultUI: false,
           zoomControl: true,
@@ -117,6 +117,7 @@ export function GoogleTrackingMap() {
           streetViewControl: true,
           fullscreenControl: true,
           clickableIcons: false,
+          gestureHandling: "greedy",
         });
 
         mapRef.current = map;
@@ -147,24 +148,24 @@ export function GoogleTrackingMap() {
         // Inner safe circle
         innerCircleRef.current = new google.maps.Circle({
           center,
-          radius: 300,
+          radius: 200,
           map,
           fillColor: accent,
-          fillOpacity: 0.09,
+          fillOpacity: 0.1,
           strokeColor: accent,
-          strokeOpacity: 0.6,
+          strokeOpacity: 0.7,
           strokeWeight: 2,
         });
 
         // Outer risk circle
         outerCircleRef.current = new google.maps.Circle({
           center,
-          radius: 700,
+          radius: 600,
           map,
           fillColor: accent,
           fillOpacity: 0.03,
           strokeColor: accent,
-          strokeOpacity: 0.2,
+          strokeOpacity: 0.25,
           strokeWeight: 1,
         });
 
@@ -175,8 +176,15 @@ export function GoogleTrackingMap() {
           map,
           strokeColor: accent,
           strokeOpacity: 0.9,
-          strokeWeight: 5,
+          strokeWeight: 4,
           geodesic: true,
+          icons: [
+            {
+              icon: { path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW, scale: 3 },
+              offset: "100%",
+              repeat: "80px",
+            },
+          ],
         });
 
         setMapReady(true);
@@ -200,17 +208,17 @@ export function GoogleTrackingMap() {
 
     // Update circles
     innerCircleRef.current?.setCenter(newPos);
-    innerCircleRef.current?.setRadius(alertTriggered ? 550 : 300);
+    innerCircleRef.current?.setRadius(alertTriggered ? 400 : 200);
     innerCircleRef.current?.setOptions({ fillColor: color, strokeColor: color });
 
     outerCircleRef.current?.setCenter(newPos);
     outerCircleRef.current?.setOptions({ fillColor: color, strokeColor: color });
 
-    // Extend trail (keep last 20 points)
+    // Extend trail (keep last 30 points)
     const prev = trailPointsRef.current;
     const last = prev[prev.length - 1];
     if (!last || last.lat !== center.lat || last.lng !== center.lng) {
-      trailPointsRef.current = [...prev, center].slice(-20);
+      trailPointsRef.current = [...prev, center].slice(-30);
       trailRef.current?.setPath(trailPointsRef.current);
       trailRef.current?.setOptions({ strokeColor: color });
     }
@@ -219,8 +227,75 @@ export function GoogleTrackingMap() {
     mapRef.current?.panTo(newPos);
   }, [center.lat, center.lng, alertTriggered, mapReady]);
 
+  // ── Route to a safe place using Google Directions ─────────────────────
+  const routeToPlace = useCallback(
+    async (lat: number, lng: number, name: string) => {
+      if (!mapReady || !mapRef.current) return;
 
-  // ── Load nearby safe places via backend (hospitals, police + fallback zones) ─
+      // Clear existing route
+      routeLineRef.current?.setMap(null);
+      routeLineRef.current = null;
+      setRoutingTo(name);
+
+      try {
+        const directionsService = new google.maps.DirectionsService();
+        const result = await directionsService.route({
+          origin: new google.maps.LatLng(center.lat, center.lng),
+          destination: new google.maps.LatLng(lat, lng),
+          travelMode: google.maps.TravelMode.WALKING,
+        });
+
+        if (result.status === google.maps.DirectionsStatus.OK) {
+          const route = result.routes[0];
+          const path = google.maps.geometry.encoding.decodePath(
+            route.overview_polyline,
+          );
+
+          routeLineRef.current = new google.maps.Polyline({
+            path,
+            map: mapRef.current,
+            strokeColor: "#60a5fa",
+            strokeOpacity: 0.9,
+            strokeWeight: 5,
+            geodesic: true,
+          });
+
+          // Fit bounds to show full route
+          const bounds = new google.maps.LatLngBounds();
+          path.forEach((p) => bounds.extend(p));
+          mapRef.current.fitBounds(bounds, 60);
+
+          // Show travel time
+          const leg = route.legs[0];
+          infoWindowRef.current?.setContent(
+            `<div style="color:#111;font-size:13px;padding:4px 2px;">
+              <strong>🚶 Route to ${name}</strong><br/>
+              Distance: <b>${leg.distance?.text}</b><br/>
+              Walking time: <b>${leg.duration?.text}</b>
+             </div>`,
+          );
+          infoWindowRef.current?.open(mapRef.current);
+        }
+      } catch {
+        // Fallback: open Google Maps in new tab
+        window.open(
+          `https://www.google.com/maps/dir/?api=1&origin=${center.lat},${center.lng}&destination=${lat},${lng}&travelmode=walking`,
+          "_blank",
+        );
+        setRoutingTo(null);
+      }
+    },
+    [mapReady, center.lat, center.lng],
+  );
+
+  const clearRoute = useCallback(() => {
+    routeLineRef.current?.setMap(null);
+    routeLineRef.current = null;
+    setRoutingTo(null);
+    infoWindowRef.current?.close();
+  }, []);
+
+  // ── Load nearby safe places ────────────────────────────────────────────
   const loadNearbyPlaces = useCallback(async () => {
     if (!mapReady || !mapRef.current) return;
 
@@ -228,107 +303,156 @@ export function GoogleTrackingMap() {
     nearbyMarkersRef.current.forEach((m) => m.setMap(null));
     nearbyMarkersRef.current = [];
     setNearbyCount(0);
+    setIsLoadingNearby(true);
 
     const placeTypeConfig: Record<string, { color: string; emoji: string }> = {
-      hospital:   { color: "#f87171", emoji: "🏥" },
-      police:     { color: "#60a5fa", emoji: "🚔" },
-      safe_zone:  { color: "#a4e3be", emoji: "📍" },
+      hospital:  { color: "#f87171", emoji: "🏥" },
+      police:    { color: "#60a5fa", emoji: "🚔" },
+      safe_zone: { color: "#a4e3be", emoji: "📍" },
     };
 
-    try {
-      const resp = await fetch(
-        `${API_BASE_URL}/api/routes/nearby-safe-places/?lat=${center.lat}&lng=${center.lng}&radius=2000`,
-        {
-          headers: getAuthHeaders(),
+    let places: Array<{ name: string; latitude: number; longitude: number; place_type: string; address: string; distance_m?: number }> = [];
+
+    // Try client-side Google Places first (most accurate)
+    const clientPlaces = await findNearbyPlaces(center.lat, center.lng, 2000);
+    if (clientPlaces && clientPlaces.length > 0) {
+      places = clientPlaces;
+    } else {
+      // Try backend API
+      try {
+        const resp = await fetch(
+          `${API_BASE_URL}/api/routes/nearby-safe-places/?lat=${center.lat}&lng=${center.lng}&radius=2000`,
+          { headers: getAuthHeaders() },
+        );
+        if (resp.ok) {
+          const data = await resp.json();
+          places = (data.places ?? []).map((p: any) => ({
+            ...p,
+            // Compute distance if not provided
+            distance_m: (() => {
+              const R = 6371000;
+              const dLat = ((p.latitude - center.lat) * Math.PI) / 180;
+              const dLng = ((p.longitude - center.lng) * Math.PI) / 180;
+              const a =
+                Math.sin(dLat / 2) ** 2 +
+                Math.cos((center.lat * Math.PI) / 180) *
+                  Math.cos((p.latitude * Math.PI) / 180) *
+                  Math.sin(dLng / 2) ** 2;
+              return Math.round(6371000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+            })(),
+          }));
         }
-      );
-      if (!resp.ok) throw new Error("backend error");
-      const data: {
-        places: { name: string; latitude: number; longitude: number; place_type: string; address: string }[];
-        source: string;
-      } = await resp.json();
-
-      const places = data.places ?? [];
-      let total = 0;
-
-      places.forEach((place) => {
-        const cfg = placeTypeConfig[place.place_type] ?? { color: "#a4e3be", emoji: "📍" };
-        const pos = { lat: place.latitude, lng: place.longitude };
-
-        const marker = new google.maps.Marker({
-          position: pos,
-          map: mapRef.current!,
-          title: place.name,
-          icon: makeSafeIcon(cfg.color),
-          zIndex: 50,
-        });
-
-        marker.addListener("click", () => {
-          infoWindowRef.current?.setContent(
-            `<div style="color:#111;font-size:13px;padding:4px 2px;">
-              <strong>${cfg.emoji} ${place.name}</strong><br/>
-              <span style="color:#555">${place.address || (data.source === "fallback_config" ? "Mumbai Safe Zone" : "")}</span>
-             </div>`,
-          );
-          infoWindowRef.current?.open(mapRef.current!, marker);
-        });
-
-        nearbyMarkersRef.current.push(marker);
-        total++;
-      });
-
-      setNearbyCount(total);
-
-      // Pan map to show all markers
-      if (total > 0 && mapRef.current) {
-        const bounds = new google.maps.LatLngBounds();
-        bounds.extend({ lat: center.lat, lng: center.lng });
-        nearbyMarkersRef.current.forEach((m) => {
-          const p = m.getPosition();
-          if (p) bounds.extend(p);
-        });
-        mapRef.current.fitBounds(bounds, 60);
+      } catch {
+        // use fallback below
       }
-    } catch {
-      // Last resort: show configured Mumbai safe zones as markers
-      const fallback = [
-        { name: "CST Police Station",       lat: 18.9400, lng: 72.8350, emoji: "🚔", color: "#60a5fa" },
-        { name: "KEM Hospital",             lat: 18.9920, lng: 72.8400, emoji: "🏥", color: "#f87171" },
-        { name: "Lilavati Hospital",        lat: 19.0510, lng: 72.8283, emoji: "🏥", color: "#f87171" },
-        { name: "Mumbai Central Station",   lat: 18.9691, lng: 72.8191, emoji: "📍", color: "#a4e3be" },
-        { name: "Colaba Police Station",    lat: 18.9225, lng: 72.8323, emoji: "🚔", color: "#60a5fa" },
-        { name: "Cooper Hospital",          lat: 19.1076, lng: 72.8388, emoji: "🏥", color: "#f87171" },
-        { name: "Dadar Railway Station",    lat: 19.0178, lng: 72.8437, emoji: "📍", color: "#a4e3be" },
-      ];
-      fallback.forEach(({ name, lat, lng, emoji, color }) => {
-        const marker = new google.maps.Marker({
-          position: { lat, lng },
-          map: mapRef.current!,
-          title: name,
-          icon: makeSafeIcon(color),
-          zIndex: 50,
-        });
-        marker.addListener("click", () => {
-          infoWindowRef.current?.setContent(
-            `<div style="color:#111;font-size:13px;padding:4px 2px;"><strong>${emoji} ${name}</strong><br/><span style="color:#555">Mumbai</span></div>`,
-          );
-          infoWindowRef.current?.open(mapRef.current!, marker);
-        });
-        nearbyMarkersRef.current.push(marker);
-      });
-      setNearbyCount(fallback.length);
     }
-  }, [mapReady, center.lat, center.lng]);
 
+    // Final fallback — static Mumbai safe zones
+    if (places.length === 0) {
+      places = [
+        { name: "CST Police Station",    latitude: 18.9400, longitude: 72.8350, place_type: "police",   address: "Mumbai", distance_m: undefined },
+        { name: "KEM Hospital",           latitude: 18.9920, longitude: 72.8400, place_type: "hospital", address: "Mumbai", distance_m: undefined },
+        { name: "Lilavati Hospital",      latitude: 19.0510, longitude: 72.8283, place_type: "hospital", address: "Mumbai", distance_m: undefined },
+        { name: "Colaba Police Station",  latitude: 18.9225, longitude: 72.8323, place_type: "police",   address: "Mumbai", distance_m: undefined },
+        { name: "Cooper Hospital",        latitude: 19.1076, longitude: 72.8388, place_type: "hospital", address: "Mumbai", distance_m: undefined },
+      ];
+    }
+
+    let total = 0;
+    places.forEach((place) => {
+      const cfg = placeTypeConfig[place.place_type] ?? { color: "#a4e3be", emoji: "📍" };
+      const pos = { lat: place.latitude, lng: place.longitude };
+      const distText =
+        place.distance_m != null
+          ? place.distance_m < 1000
+            ? `${place.distance_m} m away`
+            : `${(place.distance_m / 1000).toFixed(1)} km away`
+          : "";
+
+      const marker = new google.maps.Marker({
+        position: pos,
+        map: mapRef.current!,
+        title: place.name,
+        icon: makePlaceIcon(cfg.color),
+        zIndex: 50,
+      });
+
+      marker.addListener("click", () => {
+        infoWindowRef.current?.setContent(
+          `<div style="color:#111;font-size:13px;padding:4px 2px;min-width:160px;">
+            <strong>${cfg.emoji} ${place.name}</strong><br/>
+            ${distText ? `<span style="color:#666">${distText}</span><br/>` : ""}
+            ${place.address ? `<span style="color:#666;font-size:11px;">${place.address}</span><br/>` : ""}
+            <button onclick="window.__safeher_route_to__(${place.latitude},${place.longitude},'${place.name.replace(/'/g, "\\'")}')"
+              style="margin-top:6px;background:#2563eb;color:#fff;border:none;padding:4px 10px;border-radius:6px;font-size:12px;cursor:pointer;">
+              🧭 Route here
+            </button>
+          </div>`,
+        );
+        infoWindowRef.current?.open(mapRef.current!, marker);
+      });
+
+      nearbyMarkersRef.current.push(marker);
+      total++;
+    });
+
+    // Expose route callback for info window buttons
+    (window as any).__safeher_route_to__ = (lat: number, lng: number, name: string) => {
+      void routeToPlace(lat, lng, name);
+      infoWindowRef.current?.close();
+    };
+
+    setNearbyCount(total);
+    setIsLoadingNearby(false);
+
+    // Fit map to show user + all markers
+    if (total > 0 && mapRef.current) {
+      const bounds = new google.maps.LatLngBounds();
+      bounds.extend({ lat: center.lat, lng: center.lng });
+      nearbyMarkersRef.current.forEach((m) => {
+        const p = m.getPosition();
+        if (p) bounds.extend(p);
+      });
+      mapRef.current.fitBounds(bounds, 60);
+    }
+  }, [mapReady, center.lat, center.lng, routeToPlace]);
+
+  // ── Auto-load nearby places on first map ready ────────────────────────
+  useEffect(() => {
+    if (mapReady) {
+      void loadNearbyPlaces();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mapReady]);
+
+  // ── Auto-show route to nearest safe place when alert fires ─────────────
+  useEffect(() => {
+    if (!mapReady || !alertTriggered) return;
+    if (nearbySafePlaces.length > 0) {
+      const nearest = nearbySafePlaces[0];
+      void routeToPlace(nearest.latitude, nearest.longitude, nearest.name);
+    } else {
+      // Trigger a reload of nearby places so we can route
+      void loadNearbyPlaces().then(() => {
+        if (nearbyMarkersRef.current.length > 0) {
+          const firstPos = nearbyMarkersRef.current[0].getPosition();
+          if (firstPos) {
+            void routeToPlace(firstPos.lat(), firstPos.lng(), nearbyMarkersRef.current[0].getTitle() ?? "Safe Place");
+          }
+        }
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [alertTriggered, mapReady]);
 
   // ── Toggle satellite / dark ───────────────────────────────────────────
   const toggleMapType = () => {
     if (!mapRef.current) return;
     if (!isSatellite) {
-      mapRef.current.setMapTypeId("satellite");
-      mapRef.current.setOptions({ styles: SATELLITE_STYLE });
+      mapRef.current.setMapTypeId(google.maps.MapTypeId.HYBRID);
+      mapRef.current.setOptions({ styles: null });
     } else {
-      mapRef.current.setMapTypeId("roadmap");
+      mapRef.current.setMapTypeId(google.maps.MapTypeId.ROADMAP);
       mapRef.current.setOptions({ styles: DARK_STYLE });
     }
     setIsSatellite(!isSatellite);
@@ -370,8 +494,10 @@ export function GoogleTrackingMap() {
     } else {
       sosMarkerRef.current?.setMap(null);
       sosMarkerRef.current = null;
+      // Clear route when alert clears
+      clearRoute();
     }
-  }, [alertTriggered, mapReady]);
+  }, [alertTriggered, mapReady, clearRoute]);
 
   // ─── Error UI ─────────────────────────────────────────────────────────
   if (mapError) {
@@ -420,18 +546,42 @@ export function GoogleTrackingMap() {
           {isSatellite ? "🗺 Map" : "🛰 Satellite"}
         </button>
         <button
-          onClick={loadNearbyPlaces}
-          className="rounded-xl border border-white/10 bg-bg-deep/80 px-3 py-2 text-xs font-medium text-foreground/80 backdrop-blur transition hover:bg-white/10"
+          onClick={() => void loadNearbyPlaces()}
+          disabled={isLoadingNearby}
+          className="rounded-xl border border-white/10 bg-bg-deep/80 px-3 py-2 text-xs font-medium text-foreground/80 backdrop-blur transition hover:bg-white/10 disabled:opacity-50"
           title="Show nearby hospitals & police"
         >
-          {nearbyCount > 0 ? `📍 ${nearbyCount} nearby` : "🏥 Nearby"}
+          {isLoadingNearby
+            ? "⏳ Loading…"
+            : nearbyCount > 0
+            ? `📍 ${nearbyCount} nearby`
+            : "🏥 Nearby"}
         </button>
+        {routingTo && (
+          <button
+            onClick={clearRoute}
+            className="rounded-xl border border-blue-400/30 bg-blue-500/20 px-3 py-2 text-xs font-medium text-blue-300 backdrop-blur transition hover:bg-blue-500/30"
+            title="Clear route"
+          >
+            ✕ Clear route
+          </button>
+        )}
       </div>
 
       {/* Alert banner */}
       {alertTriggered && (
         <div className="pointer-events-none absolute left-4 right-4 top-20 rounded-2xl border border-red-500/40 bg-red-500/15 px-4 py-3 text-center backdrop-blur">
-          <span className="text-sm font-semibold text-red-300">⚠️ High Risk Detected — SOS Available</span>
+          <span className="text-sm font-semibold text-red-300">⚠️ High Risk — Routing to Nearest Safe Place…</span>
+        </div>
+      )}
+
+      {/* Routing banner */}
+      {routingTo && !alertTriggered && (
+        <div className="pointer-events-none absolute left-4 right-16 top-20 rounded-2xl border border-blue-500/30 bg-blue-500/10 px-4 py-2.5 backdrop-blur">
+          <div className="flex items-center gap-2">
+            <MapPin className="h-3.5 w-3.5 text-blue-300 shrink-0" />
+            <span className="text-xs font-medium text-blue-200 truncate">Routing to {routingTo}</span>
+          </div>
         </div>
       )}
 

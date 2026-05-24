@@ -112,7 +112,15 @@ export async function registerUser(payload: RegisterRequest): Promise<AuthRespon
 
 // Types used elsewhere — lightweight placeholders
 export type EmbeddedAgentAction = any;
-export type NearbyPlace = { name: string; latitude: number; longitude: number; place_type?: string; address?: string };
+export type NearbyPlace = {
+  name: string;
+  latitude: number;
+  longitude: number;
+  place_type?: string;
+  address?: string;
+  /** Distance from user in metres (when available) */
+  distance_m?: number;
+};
 export type AgentActionType = string;
 
 export type AreaType = "normal" | "crowded" | "isolated";

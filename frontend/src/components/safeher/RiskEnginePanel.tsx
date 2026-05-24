@@ -136,8 +136,8 @@ const ACTION_META: Record<AgentActionType, { icon: React.ReactNode; color: strin
   NOTIFY_CONTACTS:      { icon: <Phone className="h-4 w-4" />,       color: "hsl(38 90% 58%)",   label: "Contacts Notified" },
   START_RECORDING:      { icon: <Mic className="h-4 w-4" />,         color: "hsl(270 60% 65%)",  label: "Recording Started" },
   SHARE_LOCATION:       { icon: <Share2 className="h-4 w-4" />,      color: "hsl(200 80% 60%)",  label: "Location Shared" },
-  RECOMMEND_SAFE_PLACE: { icon: <MapPin className="h-4 w-4" />,      color: "hsl(140 13% 73%)",  label: "Safe Place Suggested" },
-  RECOMMEND_SAFE_ROUTE: { icon: <Route className="h-4 w-4" />,       color: "hsl(140 45% 55%)",  label: "Safe Route Suggested" },
+  RECOMMEND_SAFE_PLACE: { icon: <MapPin className="h-4 w-4" />,      color: "hsl(140 13% 73%)",  label: "Safe Place Suggested — Routing to Hospital / Police" },
+  RECOMMEND_SAFE_ROUTE: { icon: <Route className="h-4 w-4" />,       color: "hsl(140 45% 55%)",  label: "En-Route: Safest Path Calculated" },
   INCREASE_MONITORING:  { icon: <Activity className="h-4 w-4" />,    color: "hsl(200 60% 65%)",  label: "Monitoring Increased" },
 };
 
@@ -179,8 +179,20 @@ function AgentActionCard({ action }: { action: EmbeddedAgentAction }) {
 
 // ─── Nearby Place Card ────────────────────────────────────────────────────────
 
-function NearbyPlaceCard({ place }: { place: NearbyPlace }) {
-  const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${place.latitude},${place.longitude}`;
+function NearbyPlaceCard({ place, userLat, userLng }: { place: NearbyPlace; userLat?: number; userLng?: number }) {
+  const placeEmoji =
+    place.place_type === "hospital" ? "🏥" :
+    place.place_type === "police"   ? "🚔" : "📍";
+
+  const placeColor =
+    place.place_type === "hospital" ? "hsl(0 70% 65%)" :
+    place.place_type === "police"   ? "hsl(210 80% 65%)" :
+    "hsl(140 13% 73%)";
+
+  // Walking directions URL
+  const mapsUrl = userLat != null && userLng != null
+    ? `https://www.google.com/maps/dir/?api=1&origin=${userLat},${userLng}&destination=${place.latitude},${place.longitude}&travelmode=walking`
+    : `https://www.google.com/maps/search/?api=1&query=${place.latitude},${place.longitude}`;
 
   return (
     <a
@@ -190,22 +202,30 @@ function NearbyPlaceCard({ place }: { place: NearbyPlace }) {
       className="flex items-center gap-3 rounded-2xl p-3.5 transition-all hover:bg-white/5 group"
       style={{ border: "1px solid hsl(140 13% 73% / 0.1)" }}
     >
-      <div className="h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0 bg-soft-highlight/15 text-soft-highlight">
-        <MapPin className="h-4 w-4" />
+      <div
+        className="h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0 text-lg shrink-0"
+        style={{ background: `${placeColor}15`, border: `1px solid ${placeColor}25` }}
+      >
+        {placeEmoji}
       </div>
       <div className="flex-1 min-w-0">
         <div className="text-sm font-medium text-neutral-light leading-tight truncate">
-          {place.label}
+          {place.name}
         </div>
-        {place.distance_m != null && (
-          <div className="text-xs text-foreground/50 mt-0.5">
-            {place.distance_m < 1000
-              ? `${place.distance_m} m away`
-              : `${(place.distance_m / 1000).toFixed(1)} km away`}
-          </div>
-        )}
+        <div className="flex items-center gap-2 mt-0.5">
+          {place.distance_m != null && (
+            <span className="text-xs text-foreground/50">
+              {place.distance_m < 1000
+                ? `${place.distance_m} m away`
+                : `${(place.distance_m / 1000).toFixed(1)} km away`}
+            </span>
+          )}
+          {place.address && (
+            <span className="text-xs text-foreground/35 truncate">{place.address}</span>
+          )}
+        </div>
       </div>
-      <ChevronRight className="h-4 w-4 text-foreground/30 group-hover:text-soft-highlight transition" />
+      <ChevronRight className="h-4 w-4 text-foreground/30 group-hover:text-soft-highlight transition shrink-0" />
     </a>
   );
 }
@@ -223,6 +243,7 @@ export function RiskEnginePanel() {
     nearbySafePlaces,
     routeDeviationKm,
     confidence,
+    location,
   } = useSafeHer();
 
   const probHigh   = riskScore >= 71 ? 1.0 : 0;
@@ -457,15 +478,31 @@ export function RiskEnginePanel() {
           {/* Nearby Safe Places */}
           {nearbySafePlaces.length > 0 && (
             <div className="glass rounded-[2rem] p-6 flex flex-col gap-3">
-              <div className="flex items-center gap-2">
-                <MapPin className="h-3.5 w-3.5 text-soft-highlight" />
-                <div className="text-xs uppercase tracking-widest text-foreground/50">
-                  Nearby Safe Places
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <MapPin className="h-3.5 w-3.5 text-soft-highlight" />
+                  <div className="text-xs uppercase tracking-widest text-foreground/50">
+                    Safe Place Suggested
+                  </div>
                 </div>
+                <span
+                  className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                  style={{ background: "hsl(140 13% 73% / 0.12)", color: "hsl(140 13% 73%)", border: "1px solid hsl(140 13% 73% / 0.2)" }}
+                >
+                  P6
+                </span>
               </div>
+              <p className="text-[11px] text-foreground/40">
+                Routing to nearest verified safe location (hospital / police station).
+              </p>
               <div className="space-y-1">
                 {nearbySafePlaces.slice(0, 4).map((place, i) => (
-                  <NearbyPlaceCard key={i} place={place} />
+                  <NearbyPlaceCard
+                    key={i}
+                    place={place}
+                    userLat={location.latitude}
+                    userLng={location.longitude}
+                  />
                 ))}
               </div>
             </div>
